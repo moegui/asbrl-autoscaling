@@ -1,0 +1,128 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+
+  Prefix:
+    Type: String
+  ClusterName:
+    Type: String
+  Subnet1:
+    Type: String
+  Subnet2:
+    Type: String
+  KeyName:
+    Type: String
+  ImageId:
+    Type: String
+  InstanceType:
+    Type: String
+  VolumeSize:
+    Type: Number
+  VolumeType:
+    Type: String
+  ASGDesiredCapacity:
+    Type: Number
+  MinSize:
+    Type: Number
+  MaxSize:
+    Type: Number
+ 
+Resources:
+
+{% for z in range(0,LAUNCH_TEMPLATES|length) %}
+  LaunchTemplate{{LAUNCH_TEMPLATES[z].NAME}}:
+    Type: "AWS::EC2::LaunchTemplate"
+    Properties:
+      LaunchTemplateName: !Sub "${Prefix}-${ClusterName}-launchtemplate-{{LAUNCH_TEMPLATES[z].NAME|lower}}"
+      LaunchTemplateData:
+        TagSpecifications: 
+          - ResourceType: instance
+            Tags: 
+              - Key: ClusterName  
+                Value: !Ref ClusterName
+              - Key: Release
+                Value: {{TAGS.RELEASE}}
+              - Key: Environment
+                Value: {{TAGS.ENVIRONMENT_TYPE}}
+{% if LAUNCH_TEMPLATES[z].TAGS is defined %}
+{% for y in range(0,LAUNCH_TEMPLATES[z].TAGS|length) %}
+              - Key: {{LAUNCH_TEMPLATES[z].TAGS[y].Key}}
+                Value: {{LAUNCH_TEMPLATES[z].TAGS[y].Value}}
+{% endfor %}
+{% endif %}
+        IamInstanceProfile:
+          Arn:
+            Fn::ImportValue: !Sub "${ClusterName}-InstanceProfile{{LAUNCH_TEMPLATES[z].INSTANCE_PROFILE}}-Arn"
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              DeleteOnTermination: true
+              VolumeSize: 
+                Ref: VolumeSize
+              VolumeType: 
+                Ref: VolumeType
+        SecurityGroupIds:
+{% for y in range(0,LAUNCH_TEMPLATES[z].SECURITY_GROUPS|length) %}
+          - Fn::ImportValue: !Sub "${ClusterName}-SecurityGroup{{LAUNCH_TEMPLATES[z].SECURITY_GROUPS[y].NAME}}-GroupId"
+{% endfor %}
+        KeyName: 
+          Ref: KeyName
+        ImageId: !Ref "ImageId"
+        InstanceType: 
+          Ref: InstanceType
+        Monitoring:
+          Enabled: false
+
+{% endfor %}
+{% for z in range(0,AUTOSCALING_GROUPS|length) %}
+  AutoScalingGroup{{AUTOSCALING_GROUPS[z].NAME}}:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn: 
+      - LaunchTemplate{{AUTOSCALING_GROUPS[z].LAUNCH_TEMPLATE.NAME}}
+    Properties:
+      AutoScalingGroupName: !Sub "${Prefix}-${ClusterName}-asg-{{AUTOSCALING_GROUPS[z].NAME|lower}}"
+      LaunchTemplate:
+        LaunchTemplateId:
+          Ref: LaunchTemplate{{AUTOSCALING_GROUPS[z].LAUNCH_TEMPLATE.NAME}}
+        Version: 
+          Fn::GetAtt: LaunchTemplate{{AUTOSCALING_GROUPS[z].NAME}}.LatestVersionNumber
+      MinSize: !Ref "MinSize"
+      MaxSize: !Ref "MaxSize"
+      DesiredCapacity:
+        Ref: ASGDesiredCapacity
+      TargetGroupARNs:
+{% for y in range(0,AUTOSCALING_GROUPS[z].TARGET_GROUPS|length) %}
+        - Fn::ImportValue: !Sub "${ClusterName}-ALB{{AUTOSCALING_GROUPS[z].TARGET_GROUPS[y].LB_NAME}}{{AUTOSCALING_GROUPS[z].TARGET_GROUPS[y].NAME}}Target"
+{% endfor %}
+      VPCZoneIdentifier:
+        - Ref: Subnet1
+        - Ref: Subnet2
+      Tags: 
+        - Key: ClusterName  
+          PropagateAtLaunch: false
+          Value: !Ref ClusterName
+        - Key: Release
+          PropagateAtLaunch: false
+          Value: {{TAGS.RELEASE}}
+        - Key: Environment
+          PropagateAtLaunch: false
+          Value: {{TAGS.ENVIRONMENT_TYPE}}
+
+{% endfor %}
+Outputs:
+{% for z in range(0,LAUNCH_TEMPLATES|length) %}
+{% if LAUNCH_TEMPLATES[z].OUTPUT is not defined or LAUNCH_TEMPLATES[z].OUTPUT %}
+  LaunchTemplate{{LAUNCH_TEMPLATES[z].NAME}}:
+    Value: !GetAtt "LaunchTemplate{{LAUNCH_TEMPLATES[z].NAME}}.Arn"
+    Export:
+      Name: !Sub "${ClusterName}-LaunchTemplate{{LAUNCH_TEMPLATES[z].NAME}}-Arn"
+{% endif %}
+{% endfor %}
+{% for z in range(0,AUTOSCALING_GROUPS|length) %}
+{% if AUTOSCALING_GROUPS[z].OUTPUT is not defined or AUTOSCALING_GROUPS[z].OUTPUT %}
+  AutoScalingGroup{{AUTOSCALING_GROUPS[z].NAME}}:
+    Value: !Ref "AutoScalingGroup{{AUTOSCALING_GROUPS[z].NAME}}"
+    Export:
+      Name: !Sub "${ClusterName}-AutoScalingGroup{{AUTOSCALING_GROUPS[z].NAME}}-Arn"
+{% endif %}
+{% endfor %}

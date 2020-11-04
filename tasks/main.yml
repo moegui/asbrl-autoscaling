@@ -1,0 +1,6 @@
+---
+    - name: Generate CF Autoscalinggroup
+      template:
+        src: "cf-autoscalinggroup.yml.j2"
+        dest: "{{ TEMPLATE_DEST }}"
+        mode: 0644
