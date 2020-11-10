@@ -75,7 +75,9 @@ Resources:
                 Ref: {{LAUNCH_TEMPLATES[z].NAME}}VolumeSize
               VolumeType: 
                 Ref: {{LAUNCH_TEMPLATES[z].NAME}}VolumeType
+{% if LAUNCH_TEMPLATES[z].EBS.PRIORIZED_DISK.ENABLED is sameas true %}
               Iops: !If [{{LAUNCH_TEMPLATES[z].NAME}}PriorizedDisk, !Ref {{LAUNCH_TEMPLATES[z].NAME}}VolumeIops, !Ref "AWS::NoValue"]
+{% endif %}
         SecurityGroupIds:
 {% for y in range(0,LAUNCH_TEMPLATES[z].SECURITY_GROUPS|length) %}
           - Fn::ImportValue: !Sub "${ClusterName}-SecurityGroup{{LAUNCH_TEMPLATES[z].SECURITY_GROUPS[y].NAME}}-GroupId"
