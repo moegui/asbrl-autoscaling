@@ -21,16 +21,18 @@ Parameters:
     Type: Number
   {{LAUNCH_TEMPLATES[z].NAME}}VolumeType:
     Type: String
-  {{LAUNCH_TEMPLATES[z].NAME}}ASGDesiredCapacity:
-    Type: Number
-  {{LAUNCH_TEMPLATES[z].NAME}}MinSize:
-    Type: Number
-  {{LAUNCH_TEMPLATES[z].NAME}}MaxSize:
-    Type: Number
 {% if LAUNCH_TEMPLATES[z].EBS.PRIORIZED_DISK.ENABLED is sameas true %}
   {{LAUNCH_TEMPLATES[z].NAME}}VolumeIops:
     Type: Number
 {% endif %}
+{% endfor %}
+{% for z in range(0,AUTOSCALING_GROUPS|length) %}
+  {{AUTOSCALING_GROUPS[z].NAME}}ASGDesiredCapacity:
+    Type: Number
+  {{AUTOSCALING_GROUPS[z].NAME}}MinSize:
+    Type: Number
+  {{AUTOSCALING_GROUPS[z].NAME}}MaxSize:
+    Type: Number
 {% endfor %}
 
 Resources:
@@ -64,9 +66,9 @@ Resources:
             Ebs:
               DeleteOnTermination: true
               VolumeSize: 
-                Ref: VolumeSize
+                Ref: {{LAUNCH_TEMPLATES[z].NAME}}VolumeSize
               VolumeType: 
-                Ref: VolumeType
+                Ref: {{LAUNCH_TEMPLATES[z].NAME}}VolumeType
 {% if LAUNCH_TEMPLATES[z].EBS.PRIORIZED_DISK.ENABLED is sameas true %}
               Iops:
                 Ref: {{LAUNCH_TEMPLATES[z].NAME}}VolumeIops
@@ -79,7 +81,7 @@ Resources:
           Ref: KeyName
         ImageId: !Ref "ImageId"
         InstanceType: 
-          Ref: InstanceType
+          Ref: {{LAUNCH_TEMPLATES[z].NAME}}InstanceType
         Monitoring:
           Enabled: false
 
@@ -96,10 +98,10 @@ Resources:
           Ref: LaunchTemplate{{AUTOSCALING_GROUPS[z].LAUNCH_TEMPLATE.NAME}}
         Version: 
           Fn::GetAtt: LaunchTemplate{{AUTOSCALING_GROUPS[z].NAME}}.LatestVersionNumber
-      MinSize: !Ref "MinSize"
-      MaxSize: !Ref "MaxSize"
+      MinSize: !Ref "{{AUTOSCALING_GROUPS[z].NAME}}MinSize"
+      MaxSize: !Ref "{{AUTOSCALING_GROUPS[z].NAME}}MaxSize"
       DesiredCapacity:
-        Ref: ASGDesiredCapacity
+        Ref: {{AUTOSCALING_GROUPS[z].NAME}}ASGDesiredCapacity
       TargetGroupARNs:
 {% for y in range(0,AUTOSCALING_GROUPS[z].TARGET_GROUPS|length) %}
         - Fn::ImportValue: !Sub "${ClusterName}-ALB{{AUTOSCALING_GROUPS[z].TARGET_GROUPS[y].LB_NAME}}{{AUTOSCALING_GROUPS[z].TARGET_GROUPS[y].NAME}}Target"
