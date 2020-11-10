@@ -14,19 +14,25 @@ Parameters:
     Type: String
   ImageId:
     Type: String
-  InstanceType:
+{% for z in range(0,LAUNCH_TEMPLATES|length) %}
+  {{LAUNCH_TEMPLATES[z].NAME}}InstanceType:
     Type: String
-  VolumeSize:
+  {{LAUNCH_TEMPLATES[z].NAME}}VolumeSize:
     Type: Number
-  VolumeType:
+  {{LAUNCH_TEMPLATES[z].NAME}}VolumeType:
     Type: String
-  ASGDesiredCapacity:
+  {{LAUNCH_TEMPLATES[z].NAME}}ASGDesiredCapacity:
     Type: Number
-  MinSize:
+  {{LAUNCH_TEMPLATES[z].NAME}}MinSize:
     Type: Number
-  MaxSize:
+  {{LAUNCH_TEMPLATES[z].NAME}}MaxSize:
     Type: Number
- 
+{% if LAUNCH_TEMPLATES[z].EBS.PRIORIZED_DISK.ENABLED is sameas true %}
+  {{LAUNCH_TEMPLATES[z].NAME}}VolumeIops:
+    Type: Number
+{% endif %}
+{% endfor %}
+
 Resources:
 
 {% for z in range(0,LAUNCH_TEMPLATES|length) %}
@@ -61,6 +67,10 @@ Resources:
                 Ref: VolumeSize
               VolumeType: 
                 Ref: VolumeType
+{% if LAUNCH_TEMPLATES[z].EBS.PRIORIZED_DISK.ENABLED is sameas true %}
+              Iops:
+                Ref: {{LAUNCH_TEMPLATES[z].NAME}}VolumeIops
+{% endif %}
         SecurityGroupIds:
 {% for y in range(0,LAUNCH_TEMPLATES[z].SECURITY_GROUPS|length) %}
           - Fn::ImportValue: !Sub "${ClusterName}-SecurityGroup{{LAUNCH_TEMPLATES[z].SECURITY_GROUPS[y].NAME}}-GroupId"
