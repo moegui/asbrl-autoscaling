@@ -21,6 +21,9 @@ Role Variables
   - INSTANCE_PROFILE: (String)
   - SECURITY_GROUPS: (List)
     - NAME: (String)
+  - EBS:
+    - PRIORIZED_DISK:
+      - ENABLED: (Boolean)
   - TAGS: (List)
     - Key: (String)
     - Value: (String)
