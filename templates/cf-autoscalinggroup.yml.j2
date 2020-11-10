@@ -14,19 +14,33 @@ Parameters:
     Type: String
   ImageId:
     Type: String
-  InstanceType:
+{% for z in range(0,LAUNCH_TEMPLATES|length) %}
+  {{LAUNCH_TEMPLATES[z].NAME}}InstanceType:
     Type: String
-  VolumeSize:
+  {{LAUNCH_TEMPLATES[z].NAME}}VolumeSize:
     Type: Number
-  VolumeType:
+  {{LAUNCH_TEMPLATES[z].NAME}}VolumeType:
     Type: String
-  ASGDesiredCapacity:
+{% if LAUNCH_TEMPLATES[z].EBS.PRIORIZED_DISK.ENABLED is sameas true %}
+  {{LAUNCH_TEMPLATES[z].NAME}}VolumeIops:
     Type: Number
-  MinSize:
+{% endif %}
+{% endfor %}
+{% for z in range(0,AUTOSCALING_GROUPS|length) %}
+  {{AUTOSCALING_GROUPS[z].NAME}}ASGDesiredCapacity:
     Type: Number
-  MaxSize:
+  {{AUTOSCALING_GROUPS[z].NAME}}MinSize:
     Type: Number
- 
+  {{AUTOSCALING_GROUPS[z].NAME}}MaxSize:
+    Type: Number
+{% endfor %}
+
+Conditions: 
+
+{% for z in range(0,LAUNCH_TEMPLATES|length) %}
+  {{LAUNCH_TEMPLATES[z].NAME}}PriorizedDisk: !Equals [ !Ref {{LAUNCH_TEMPLATES[z].NAME}}VolumeType, io1 ]
+{% endfor %}
+
 Resources:
 
 {% for z in range(0,LAUNCH_TEMPLATES|length) %}
@@ -58,9 +72,12 @@ Resources:
             Ebs:
               DeleteOnTermination: true
               VolumeSize: 
-                Ref: VolumeSize
+                Ref: {{LAUNCH_TEMPLATES[z].NAME}}VolumeSize
               VolumeType: 
-                Ref: VolumeType
+                Ref: {{LAUNCH_TEMPLATES[z].NAME}}VolumeType
+{% if LAUNCH_TEMPLATES[z].EBS.PRIORIZED_DISK.ENABLED is sameas true %}
+              Iops: !If [{{LAUNCH_TEMPLATES[z].NAME}}PriorizedDisk, !Ref {{LAUNCH_TEMPLATES[z].NAME}}VolumeIops, !Ref "AWS::NoValue"]
+{% endif %}
         SecurityGroupIds:
 {% for y in range(0,LAUNCH_TEMPLATES[z].SECURITY_GROUPS|length) %}
           - Fn::ImportValue: !Sub "${ClusterName}-SecurityGroup{{LAUNCH_TEMPLATES[z].SECURITY_GROUPS[y].NAME}}-GroupId"
@@ -69,7 +86,7 @@ Resources:
           Ref: KeyName
         ImageId: !Ref "ImageId"
         InstanceType: 
-          Ref: InstanceType
+          Ref: {{LAUNCH_TEMPLATES[z].NAME}}InstanceType
         Monitoring:
           Enabled: false
 
@@ -86,10 +103,10 @@ Resources:
           Ref: LaunchTemplate{{AUTOSCALING_GROUPS[z].LAUNCH_TEMPLATE.NAME}}
         Version: 
           Fn::GetAtt: LaunchTemplate{{AUTOSCALING_GROUPS[z].NAME}}.LatestVersionNumber
-      MinSize: !Ref "MinSize"
-      MaxSize: !Ref "MaxSize"
+      MinSize: !Ref "{{AUTOSCALING_GROUPS[z].NAME}}MinSize"
+      MaxSize: !Ref "{{AUTOSCALING_GROUPS[z].NAME}}MaxSize"
       DesiredCapacity:
-        Ref: ASGDesiredCapacity
+        Ref: {{AUTOSCALING_GROUPS[z].NAME}}ASGDesiredCapacity
       TargetGroupARNs:
 {% for y in range(0,AUTOSCALING_GROUPS[z].TARGET_GROUPS|length) %}
         - Fn::ImportValue: !Sub "${ClusterName}-ALB{{AUTOSCALING_GROUPS[z].TARGET_GROUPS[y].LB_NAME}}{{AUTOSCALING_GROUPS[z].TARGET_GROUPS[y].NAME}}Target"
