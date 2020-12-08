@@ -109,7 +109,7 @@ Resources:
         Ref: {{AUTOSCALING_GROUPS[z].NAME}}ASGDesiredCapacity
       TargetGroupARNs:
 {% for y in range(0,AUTOSCALING_GROUPS[z].TARGET_GROUPS|length) %}
-        - Fn::ImportValue: !Sub "${ClusterName}-ALB{{AUTOSCALING_GROUPS[z].TARGET_GROUPS[y].LB_NAME}}{{AUTOSCALING_GROUPS[z].TARGET_GROUPS[y].NAME}}Target"
+        - Fn::ImportValue: !Sub "${ClusterName}-LB{{AUTOSCALING_GROUPS[z].TARGET_GROUPS[y].LB_NAME}}{{AUTOSCALING_GROUPS[z].TARGET_GROUPS[y].NAME}}Target"
 {% endfor %}
       VPCZoneIdentifier:
         - Ref: Subnet1
